@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CLI = ROOT / "bin" / "google-agent-kit"
+CLI = ROOT / "bin" / "ezgoogleone"
 
 
 def load_cli():

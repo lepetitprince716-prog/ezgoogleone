@@ -12,7 +12,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = ROOT / "skills"
-SKILL_NAMES = ("google-agent-kit", "gemini-web", "aistudio", "gemini-api", "colab")
+SKILL_NAMES = ("ezgoogleone", "gemini-web", "aistudio", "gemini-api", "colab")
 
 HARNESS_TARGETS: dict[str, Path] = {
     "agents": Path.home() / ".agents" / "skills",
@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in ("-h", "--help", "help"):
         print(
-            "usage: google-agent-kit <command> [args...]\n"
+            "usage: ezgoogleone <command> [args...]\n"
             "  doctor [--json]                                Check runtimes and credentials\n"
             "  install-skills [--target DIR | --agents | --claude | --codex | --gemini | --opencode | --all] [--copy]\n"
             "  gemini-web <args...>                           Drive gemini.google.com/app\n"
@@ -127,14 +127,14 @@ def main(argv: list[str] | None = None) -> int:
         if "--json" in rest:
             print(json.dumps(rep, indent=2))
             return 0
-        print("google-agent-kit doctor")
+        print("ezgoogleone doctor")
         for mod, info in rep["modules"].items():
             mark = "READY" if info["ready"] else "MISSING"
             print(f"  {mod:12s} {mark:7s}  ({', '.join(info['requires'])})")
         return 0
 
     if cmd == "install-skills":
-        ap = argparse.ArgumentParser(prog="google-agent-kit install-skills")
+        ap = argparse.ArgumentParser(prog="ezgoogleone install-skills")
         ap.add_argument("--target", action="append", type=Path, default=[])
         ap.add_argument("--agents", action="store_true")
         ap.add_argument("--claude", action="store_true")
@@ -164,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     if cmd in dispatch:
         return subprocess.run([str(dispatch[cmd]), *rest], check=False).returncode
 
-    print(f"unknown command: {cmd} (run `google-agent-kit help`)", file=sys.stderr)
+    print(f"unknown command: {cmd} (run `ezgoogleone help`)", file=sys.stderr)
     return 2
 
 

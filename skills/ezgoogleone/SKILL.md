@@ -1,11 +1,11 @@
 ---
-name: google-agent-kit
+name: ezgoogleone
 description: Route tasks across Google AI tools outside Antigravity: Gemini Web (chat + Deep Research), Google AI Studio Web (long-context, structured output, images, TTS, Build export), Gemini REST & Decisions API, and Google Colab GPU/TPU.
 ---
 
-# google-agent-kit
+# ezgoogleone
 
-Run `google-agent-kit doctor` first to see which modules are ready on this machine.
+Run `ezgoogleone doctor` first to see which modules are ready on this machine.
 
 ## Choosing a tool
 

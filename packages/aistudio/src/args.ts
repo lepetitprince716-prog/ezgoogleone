@@ -208,7 +208,7 @@ function textOut(ctx: Ctx, m: Map<string, string[] | true>, cmd: string): string
   const ms = String(ctx.now.getMilliseconds()).padStart(3, "0");
   const pid = ctx.pid ?? process.pid;
   const rand = ctx.rand ?? randomBytes(3).toString("hex");
-  return join(ctx.home, ".cache", "google-agent-kit", "aistudio", "runs", `${stamp(ctx.now)}.${ms}-${cmd}-${pid}-${rand}.md`);
+  return join(ctx.home, ".cache", "ezgoogleone", "aistudio", "runs", `${stamp(ctx.now)}.${ms}-${cmd}-${pid}-${rand}.md`);
 }
 
 function timeout(m: Map<string, string[] | true>, dflt: number): number {

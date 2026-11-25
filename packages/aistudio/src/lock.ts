@@ -34,14 +34,14 @@ export function resolveStateDir(sub: string, envOverride?: string): string {
   const custom = envOverride && process.env[envOverride]?.trim();
   if (custom) return custom;
   const xdg = process.env.XDG_STATE_HOME?.trim() || join(homedir(), ".local", "state");
-  return join(xdg, "google-agent-kit", sub);
+  return join(xdg, "ezgoogleone", sub);
 }
 
 export function resolveCacheDir(sub: string, envOverride?: string): string {
   const custom = envOverride && process.env[envOverride]?.trim();
   if (custom) return custom;
   const xdg = process.env.XDG_CACHE_HOME?.trim() || join(homedir(), ".cache");
-  return join(xdg, "google-agent-kit", sub);
+  return join(xdg, "ezgoogleone", sub);
 }
 
 export function writeAtomic(f: string, data: string): void {

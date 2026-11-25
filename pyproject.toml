@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "google-agent-kit"
+name = "ezgoogleone"
 version = "0.1.0"
 description = "Universal CLI toolkit and cross-agent skills for Gemini Web, Google AI Studio, Gemini API, and Google Colab"
 readme = "README.md"

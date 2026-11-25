@@ -1,8 +1,8 @@
-# google-agent-kit
+# ezgoogleone
 
 [English README](README.md)
 
-一套通用、与特定 Agent 解耦的 **Google AI 全家桶（非 Antigravity 宿主插件）命令行工具集与跨 Agent 技能包**，适用于终端脚本及 Claude Code、Codex、OpenCode、Pi、Cursor、Antigravity 等任意支持 `SKILL.md` 的代理：
+一套非官方、与特定 Agent 解耦的 **Google AI 工具集（非 Antigravity 宿主插件）与跨 Agent 技能包**，适用于终端脚本及 Claude Code、Codex、OpenCode、Pi、Cursor、Antigravity 等任意支持 `SKILL.md` 的代理（社区工具，与 Google 官方无隶属关系）：
 
 1. **`gemini-web`** — 通过 `ego-browser` 驱动 **Gemini Web**（`gemini.google.com/app`）：支持常规对话（`chat`）与异步 **Deep Research** 报告收割（`deep-research start/check`），自动锁定模型与思考档位并校验状态。
 2. **`aistudio`** — 通过 `ego-browser` 驱动 **Google AI Studio**（`aistudio.google.com`），直接使用已登录的 Google 订阅额度（无需 API Key）：支持 1M 上下文对话（`run`/`send`/`get`）、文件与 YouTube 附件、JSON Schema 结构化输出、图片生成/编辑（`image`）、TTS 语音合成（`speech`）、Build 应用 `.zip` 导出（`build-export`）、多空间并发锁与本地用量账本（`usage`）。
@@ -32,8 +32,8 @@
 ### 1. 克隆并加入 `PATH`
 
 ```bash
-git clone https://github.com/lepetitprince716-prog/google-agent-kit.git
-cd google-agent-kit
+git clone https://github.com/lepetitprince716-prog/ezgoogleone.git
+cd ezgoogleone
 export PATH="$PWD/bin:$PATH"
 ```
 
@@ -41,13 +41,13 @@ export PATH="$PWD/bin:$PATH"
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$PWD/bin/"{google-agent-kit,gemini-web,aistudio,gemini-api,colab-kit} ~/.local/bin/
+ln -sf "$PWD/bin/"{ezgoogleone,gemini-web,aistudio,gemini-api,colab-kit} ~/.local/bin/
 ```
 
 ### 2. 环境自检
 
 ```bash
-google-agent-kit doctor
+ezgoogleone doctor
 ```
 
 按需准备对应环境即可（互不强制依赖）：
@@ -59,11 +59,11 @@ google-agent-kit doctor
 
 ```bash
 # 默认安装到 ~/.agents/skills
-google-agent-kit install-skills
+ezgoogleone install-skills
 
 # 或指定 Claude Code / Codex / Antigravity / OpenCode / 自定义目录
-google-agent-kit install-skills --claude --codex
-google-agent-kit install-skills --target /path/to/your/skills --copy
+ezgoogleone install-skills --claude --codex
+ezgoogleone install-skills --target /path/to/your/skills --copy
 ```
 
 ---
@@ -154,7 +154,7 @@ colab-kit stop -s eval1
 ## 工程设计约定
 
 - **稳定结构化协议**：`aistudio` 与 `gemini-web` 严格在 `stdout` 输出单行 JSON，日志走 `stderr`；退出码语义统一（`0` 成功、`1` 运行错误/忙碌、`2` 参数错误、`3` 页面 DOM 变动、`4` 限流/配额、`5` 安全拦截、`6` 输出截断、`7` 需人工登录或介入）。
-- **状态完全外置**：锁文件、空间登记表、用量账本和模型缓存统一存放在 XDG 标准目录（`~/.local/state/google-agent-kit/` 与 `~/.cache/google-agent-kit/`），不会弄脏代码仓库。
+- **状态完全外置**：锁文件、空间登记表、用量账本和模型缓存统一存放在 XDG 标准目录（`~/.local/state/ezgoogleone/` 与 `~/.cache/ezgoogleone/`），不会弄脏代码仓库。
 - **跨平台锁机制**：macOS 使用内核 `O_EXLOCK`，Linux 使用带 PID 存活检测的原子 `O_CREAT|O_EXCL` 锁文件，两侧行为与单测完全一致。
 - **可选目录防误传红线**：配置环境变量 `GEMINI_API_DENY_DIRS` 或 `COLAB_KIT_DENY_DIRS`（逗号分隔目录名，如 `private,secrets`）即可在读取/上传前 fail-closed 拦截。
 - **隐私与密钥守门**：克隆后运行 `git config core.hooksPath .githooks` 开启本地隐私扫描与 Betterleaks 密钥门禁，详见 [PRIVACY.md](PRIVACY.md)。

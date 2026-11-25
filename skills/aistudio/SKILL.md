@@ -5,7 +5,7 @@ description: Drive Google AI Studio (aistudio.google.com) through ego-browser on
 
 # aistudio
 
-Drives `https://aistudio.google.com` via `ego-browser` and prints one JSON object to stdout (diagnostics go to stderr). State and model caches live under standard XDG directories (`~/.local/state/google-agent-kit/aistudio` and `~/.cache/google-agent-kit/aistudio`).
+Drives `https://aistudio.google.com` via `ego-browser` and prints one JSON object to stdout (diagnostics go to stderr). State and model caches live under standard XDG directories (`~/.local/state/ezgoogleone/aistudio` and `~/.cache/ezgoogleone/aistudio`).
 
 ## Commands
 

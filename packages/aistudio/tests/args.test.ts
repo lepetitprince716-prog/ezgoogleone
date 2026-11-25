@@ -48,7 +48,7 @@ describe("parseArgs", () => {
     expect(req.youtube).toBe("https://youtu.be/dQw4w9WgXcQ");
     expect(req.tools).toEqual(["search", "code"]);
     expect(req.space).toBe("lane-1");
-    expect(String(req.out)).toContain(".cache/google-agent-kit/aistudio/runs/");
+    expect(String(req.out)).toContain(".cache/ezgoogleone/aistudio/runs/");
   });
 
   test("rejects reserved spaces, duplicate filenames, and bad chat ids", () => {

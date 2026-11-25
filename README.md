@@ -1,8 +1,8 @@
-# google-agent-kit
+# ezgoogleone
 
 [中文文档](README.zh-CN.md)
 
-A universal, agent-agnostic CLI toolkit and portable skill pack for driving **Google's AI ecosystem** from any terminal or coding agent (Claude Code, Codex, OpenCode, Pi, Cursor, Antigravity, or plain shell):
+An unofficial, agent-agnostic CLI toolkit and portable skill pack for using **Google AI services** (Gemini Web, Google AI Studio, Gemini API, and Google Colab) from any terminal or coding agent (Claude Code, Codex, OpenCode, Pi, Cursor, Antigravity, or plain shell). Not affiliated with or endorsed by Google.
 
 1. **`gemini-web`** — Drives **Gemini Web** (`gemini.google.com/app`) via `ego-browser`: standard chat and asynchronous Deep Research report harvesting with model + thinking-level lock verification.
 2. **`aistudio`** — Drives **Google AI Studio** (`aistudio.google.com`) via `ego-browser` using your signed-in Google subscription (no API key): 1M-context chat (`run`/`send`/`get`), file & YouTube attachments, JSON Schema structured output, image generation/editing, TTS `.wav` synthesis, Build `.zip` export, parallel spaces, and a local usage ledger.
@@ -32,8 +32,8 @@ A universal, agent-agnostic CLI toolkit and portable skill pack for driving **Go
 ### 1. Clone and put `bin/` on `PATH`
 
 ```bash
-git clone https://github.com/lepetitprince716-prog/google-agent-kit.git
-cd google-agent-kit
+git clone https://github.com/lepetitprince716-prog/ezgoogleone.git
+cd ezgoogleone
 export PATH="$PWD/bin:$PATH"
 ```
 
@@ -41,13 +41,13 @@ Or symlink individual binaries into `~/.local/bin/`:
 
 ```bash
 mkdir -p ~/.local/bin
-ln -sf "$PWD/bin/"{google-agent-kit,gemini-web,aistudio,gemini-api,colab-kit} ~/.local/bin/
+ln -sf "$PWD/bin/"{ezgoogleone,gemini-web,aistudio,gemini-api,colab-kit} ~/.local/bin/
 ```
 
 ### 2. Check prerequisites
 
 ```bash
-google-agent-kit doctor
+ezgoogleone doctor
 ```
 
 Install only what you need:
@@ -59,11 +59,11 @@ Install only what you need:
 
 ```bash
 # Default (~/.agents/skills)
-google-agent-kit install-skills
+ezgoogleone install-skills
 
 # Or target specific harnesses (Claude Code, Codex, Antigravity/Gemini, OpenCode, or custom dir)
-google-agent-kit install-skills --claude --codex
-google-agent-kit install-skills --target /path/to/your/skills --copy
+ezgoogleone install-skills --claude --codex
+ezgoogleone install-skills --target /path/to/your/skills --copy
 ```
 
 ---
@@ -155,7 +155,7 @@ colab-kit stop -s eval1
 ## Architecture & Conventions
 
 - **Clean CLI contract**: `aistudio` and `gemini-web` emit exactly one machine-parseable JSON object on `stdout` and send progress/diagnostics to `stderr`. Consistent exit codes (`0` ok, `1` runtime/busy, `2` usage/invalid option, `3` DOM changed, `4` quota/429, `5` safety/recitation block, `6` max-tokens truncation, `7` needs user sign-in/action).
-- **XDG state isolation**: Mutable locks, space registries, cancel files, usage ledgers, and model caches live under `$XDG_STATE_HOME/google-agent-kit/` (`~/.local/state/google-agent-kit/`) and `$XDG_CACHE_HOME/google-agent-kit/` (`~/.cache/google-agent-kit/`) — never inside the git repository.
+- **XDG state isolation**: Mutable locks, space registries, cancel files, usage ledgers, and model caches live under `$XDG_STATE_HOME/ezgoogleone/` (`~/.local/state/ezgoogleone/`) and `$XDG_CACHE_HOME/ezgoogleone/` (`~/.cache/ezgoogleone/`) — never inside the git repository.
 - **Cross-platform locks**: Uses macOS `O_EXLOCK` kernel locks on Darwin and atomic `O_CREAT|O_EXCL` PID-verified locks on Linux.
 - **Optional path guardrails**: Set `GEMINI_API_DENY_DIRS` or `COLAB_KIT_DENY_DIRS` (comma-separated directory names, e.g., `private,secrets`) to block accidental reads/uploads from restricted folders.
 - **Privacy & secret scanning**: Enable local hooks once per clone with `git config core.hooksPath .githooks`. See [PRIVACY.md](PRIVACY.md).

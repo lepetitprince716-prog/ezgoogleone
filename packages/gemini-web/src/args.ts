@@ -146,7 +146,7 @@ function defaultOut(ctx: Ctx, prefix: string): string {
   const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
   const pid = ctx.pid ?? process.pid;
   const rand = ctx.rand ?? randomBytes(3).toString("hex");
-  return join(ctx.home, ".cache", "google-agent-kit", "gemini-web", `${stamp}-${prefix}-${pid}-${rand}.md`);
+  return join(ctx.home, ".cache", "ezgoogleone", "gemini-web", `${stamp}-${prefix}-${pid}-${rand}.md`);
 }
 
 export function parseArgs(argv: string[], ctx: Ctx): WebReq {

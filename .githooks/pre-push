@@ -14,12 +14,12 @@ url_allowed() {
     return $?
   fi
   case "$url" in
-    https://github.com/lepetitprince716-prog/google-agent-kit | \
-    https://github.com/lepetitprince716-prog/google-agent-kit.git | \
-    git@github.com:lepetitprince716-prog/google-agent-kit | \
-    git@github.com:lepetitprince716-prog/google-agent-kit.git | \
-    ssh://git@github.com/lepetitprince716-prog/google-agent-kit | \
-    ssh://git@github.com/lepetitprince716-prog/google-agent-kit.git)
+    https://github.com/lepetitprince716-prog/ezgoogleone | \
+    https://github.com/lepetitprince716-prog/ezgoogleone.git | \
+    git@github.com:lepetitprince716-prog/ezgoogleone | \
+    git@github.com:lepetitprince716-prog/ezgoogleone.git | \
+    ssh://git@github.com/lepetitprince716-prog/ezgoogleone | \
+    ssh://git@github.com/lepetitprince716-prog/ezgoogleone.git)
       return 0
       ;;
     *)
