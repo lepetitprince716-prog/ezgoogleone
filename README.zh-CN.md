@@ -51,7 +51,7 @@ google-agent-kit doctor
 ```
 
 按需准备对应环境即可（互不强制依赖）：
-- **`gemini-web` / `aistudio`**：安装 [Bun](https://bun.sh)（`>= 1.1`）和 `ego-browser`，并在浏览器内登录 Google 账号。
+- **`gemini-web` / `aistudio`**：安装 [Bun](https://bun.sh)（`>= 1.1`）和 `ego-browser`，并在浏览器内登录 Google 账号（使用 `aistudio build-export` 时另需系统 `unzip`）。
 - **`gemini-api`**：Python `>= 3.10`，设置 `GEMINI_API_KEY`（或写入 `~/.config/gemini-api/api_key`），零 pip 依赖。
 - **`colab-kit`**：Python `>= 3.10`，安装 `google-colab-cli`（`uv tool install google-colab-cli`），执行一次 `gcloud auth application-default login`。
 

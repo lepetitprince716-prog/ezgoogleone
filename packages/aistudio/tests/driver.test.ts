@@ -57,6 +57,8 @@ if (REQ.cmd === "models") {
     crosscheck: { against: "network", match: true },
     _text: "answer for " + REQ.prompt,
   };
+} else if (REQ.cmd === "build-export") {
+  result = { ok: true, exit: 0, cmd: "build-export", app: REQ.app, outDir: REQ.outDir, zip: process.env.FAKE_EGO_ZIP, zipBytes: 128, tree: [] };
 } else {
   result = { ok: true, exit: 0, cmd: REQ.cmd };
 }
@@ -154,5 +156,25 @@ describe("aistudio CLI end-to-end", () => {
     const res = JSON.parse(stdout.trim());
     expect(res.interrupted).toBe("SIGTERM");
     expect(res.pageStopped).toBe(true);
+  });
+
+  test("build-export refuses symlink entries inside downloaded zip", () => {
+    const sb = makeSandbox();
+    const outDir = join(sb.dir, "export");
+    const zipPath = join(sb.dir, "symlink.zip");
+    const mk = Bun.spawnSync([
+      "python3",
+      "-c",
+      "import sys, zipfile; zf = zipfile.ZipFile(sys.argv[1], 'w'); zi = zipfile.ZipInfo('evil_link'); zi.create_system = 3; zi.external_attr = 0o120777 << 16; zf.writestr(zi, '/tmp'); zf.close()",
+      zipPath,
+    ]);
+    expect(mk.exitCode).toBe(0);
+
+    const r = runCli(["build-export", "--app", "https://aistudio.google.com/apps/abc12345", "--out-dir", outDir], {
+      ...sb.env,
+      FAKE_EGO_ZIP: zipPath,
+    });
+    expect(r.exit).toBe(1);
+    expect(r.json.error).toContain("symlink entry");
   });
 });

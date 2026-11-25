@@ -474,13 +474,24 @@ function listFiles(dir: string, skip: string): { path: string; bytes: number }[]
 function finishExport(req: Req, o: Out): Out {
   if (!o.ok || typeof o.zip !== "string") return o;
   const outDir = req.outDir as string;
-  const names = Bun.spawnSync(["unzip", "-Z1", o.zip]);
-  if (names.exitCode !== 0) {
+  let names: ReturnType<typeof Bun.spawnSync>;
+  let meta: ReturnType<typeof Bun.spawnSync>;
+  try {
+    names = Bun.spawnSync(["unzip", "-Z1", o.zip]);
+    meta = Bun.spawnSync(["unzip", "-Z", o.zip]);
+  } catch (e) {
+    return { ...o, ok: false, exit: 1, error: `unzip is not available on PATH: ${errText(e)}`, next: "install Info-ZIP `unzip` and unpack the kept zip manually" };
+  }
+  if (names.exitCode !== 0 || meta.exitCode !== 0) {
     return { ...o, ok: false, exit: 1, error: `download is not a readable zip: ${names.stderr.toString().trim().slice(0, 200)}`, next: "run again; the zip is kept at the zip path" };
   }
   const entries = names.stdout.toString().split("\n").filter(Boolean);
   const unsafe = entries.find((n) => n.startsWith("/") || n.split("/").includes(".."));
   if (unsafe) return { ...o, ok: false, exit: 1, error: `zip holds an unsafe path: ${unsafe}; not unpacked`, next: "inspect the zip manually" };
+  const symlinkLine = meta.stdout.toString().split("\n").find((l) => /^l[rwxstST-]{9}\s/.test(l));
+  if (symlinkLine) {
+    return { ...o, ok: false, exit: 1, error: `zip holds a symlink entry: ${symlinkLine.trim().slice(0, 160)}; not unpacked`, next: "inspect the zip manually" };
+  }
   const u = Bun.spawnSync(["unzip", "-q", "-n", o.zip, "-d", outDir]);
   if (u.exitCode !== 0) {
     return { ...o, ok: false, exit: 1, error: `unzip failed: ${u.stderr.toString().trim().slice(0, 200)}`, next: "the zip is kept; unpack it manually" };

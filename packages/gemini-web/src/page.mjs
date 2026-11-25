@@ -317,47 +317,52 @@ try {
     }
   } else if (REQ.cmd === "deep-research:start") {
     const { task, page } = await openSpace(REQ.space);
-    await gotoGemini(page, ORIGIN);
-    const locked = await ensureModelAndThinking(page, REQ.modelLabel, REQ.thinkLabel);
-    await enableDeepResearch(page);
-    await page.click(PROMPT_SEL, { label: "focus Gemini prompt box" });
-    await page.waitForTimeout(350);
-    await page.keyboard.paste(REQ.prompt);
-    await page.waitForTimeout(900);
-    await page.press(PROMPT_SEL, "Enter");
+    let keepTab = false;
+    try {
+      await gotoGemini(page, ORIGIN);
+      const locked = await ensureModelAndThinking(page, REQ.modelLabel, REQ.thinkLabel);
+      await enableDeepResearch(page);
+      await page.click(PROMPT_SEL, { label: "focus Gemini prompt box" });
+      await page.waitForTimeout(350);
+      await page.keyboard.paste(REQ.prompt);
+      await page.waitForTimeout(900);
+      await page.press(PROMPT_SEL, "Enter");
 
-    await page.waitForFunction(() => {
-      const btns = [...document.querySelectorAll("button")];
-      const startBtn = btns.find((b) => {
-        const t = (b.innerText || "").trim();
-        return t === "开始研究" || t === "Start research";
-      });
-      if (startBtn && !startBtn.disabled && startBtn.getAttribute("aria-disabled") !== "true") return true;
-      const body = document.body.innerText || "";
-      return body.includes("Starting research") || body.includes("正在研究");
-    }, undefined, { timeout: 60000 }).catch(() => {});
+      await page.waitForFunction(() => {
+        const btns = [...document.querySelectorAll("button")];
+        const startBtn = btns.find((b) => {
+          const t = (b.innerText || "").trim();
+          return t === "开始研究" || t === "Start research";
+        });
+        if (startBtn && !startBtn.disabled && startBtn.getAttribute("aria-disabled") !== "true") return true;
+        const body = document.body.innerText || "";
+        return body.includes("Starting research") || body.includes("正在研究");
+      }, undefined, { timeout: 60000 }).catch(() => {});
 
-    await page.waitForTimeout(1000);
-    const startBtnText = await page.evaluate(() => {
-      const b = [...document.querySelectorAll("button")].find((el) => {
-        const t = (el.innerText || "").trim();
-        return (t === "开始研究" || t === "Start research") && !el.disabled && el.getAttribute("aria-disabled") !== "true";
+      await page.waitForTimeout(1000);
+      const startBtnText = await page.evaluate(() => {
+        const b = [...document.querySelectorAll("button")].find((el) => {
+          const t = (el.innerText || "").trim();
+          return (t === "开始研究" || t === "Start research") && !el.disabled && el.getAttribute("aria-disabled") !== "true";
+        });
+        return b ? (b.innerText || "").trim() : null;
       });
-      return b ? (b.innerText || "").trim() : null;
-    });
-    let clickedStart = false;
-    if (startBtnText) {
-      await page.click(`button:text-is("${startBtnText}")`, { label: "click Start research" });
-      clickedStart = true;
-      await page.waitForTimeout(3000);
+      let clickedStart = false;
+      if (startBtnText) {
+        await page.click(`button:text-is("${startBtnText}")`, { label: "click Start research" });
+        clickedStart = true;
+        await page.waitForTimeout(3000);
+      }
+      const finalUrl = await page.url();
+      const tail = await page.evaluate(() => (document.body.innerText || "").slice(-400));
+      keepTab = true;
+      result = {
+        ok: true, exit: 0, cmd: "deep-research:start", status: "running",
+        spaceId: task.spaceId, url: finalUrl, clickedStart, ...locked, tail,
+      };
+    } finally {
+      await task.finish({ keep: keepTab ? ["p1"] : [] });
     }
-    const finalUrl = await page.url();
-    const tail = await page.evaluate(() => (document.body.innerText || "").slice(-400));
-    await task.finish({ keep: ["p1"] });
-    result = {
-      ok: true, exit: 0, cmd: "deep-research:start", status: "running",
-      spaceId: task.spaceId, url: finalUrl, clickedStart, ...locked, tail,
-    };
   } else if (REQ.cmd === "deep-research:check") {
     let task;
     if (REQ.spaceId !== null) {
@@ -372,37 +377,42 @@ try {
     } else {
       task = await taskSpace(`${REQ.space}-check`);
     }
-    const page = (await task.pages())[0] ?? (await task.adopt((await task.tabs())[0].page));
-    if (REQ.url && !(await page.url()).includes(REQ.url)) {
-      await gotoGemini(page, REQ.url);
-    } else if (REQ.reload) {
-      await page.reload({ timeout: 30000 });
-      await page.waitForTimeout(4000);
-    }
-    await page.evaluate(() => {
-      const btn = [...document.querySelectorAll("button")].find((b) => {
-        const t = (b.innerText || b.getAttribute("aria-label") || "").trim();
-        return t === "Open" || t === "打开" || t.includes("查看报告") || t.includes("View report");
+    let keepTab = REQ.spaceId !== null;
+    try {
+      const page = (await task.pages())[0] ?? (await task.adopt((await task.tabs())[0].page));
+      if (REQ.url && !(await page.url()).includes(REQ.url)) {
+        await gotoGemini(page, REQ.url);
+      } else if (REQ.reload) {
+        await page.reload({ timeout: 30000 });
+        await page.waitForTimeout(4000);
+      }
+      await page.evaluate(() => {
+        const btn = [...document.querySelectorAll("button")].find((b) => {
+          const t = (b.innerText || b.getAttribute("aria-label") || "").trim();
+          return t === "Open" || t === "打开" || t.includes("查看报告") || t.includes("View report");
+        });
+        if (btn) btn.click();
       });
-      if (btn) btn.click();
-    });
-    await page.waitForTimeout(1500);
-    const snap = await extractMarkdownFrom(page, "deep-research-immersive-panel .markdown, immersive-editor .markdown, .markdown-main-panel", true);
-    if (!snap.stopVisible && snap.reportLen > 2000) {
-      const body = snap.md.length >= snap.reportLen * 0.65 && snap.md.length > 0 ? snap.md : snap.raw;
-      await task.finish({ keep: REQ.keep ? ["p1"] : [] });
-      result = {
-        ok: true, exit: 0, cmd: "deep-research:check", status: "done",
-        spaceId: task.spaceId, url: snap.url, title: snap.title, chars: body.length,
-        _text: `# ${snap.title}\n\n> Gemini Web Deep Research URL: ${snap.url}\n\n${body}\n`,
-      };
-    } else {
-      await task.finish({ keep: ["p1"] });
-      result = {
-        ok: true, exit: 0, cmd: "deep-research:check", status: "running",
-        spaceId: task.spaceId, url: snap.url, stopVisible: snap.stopVisible,
-        panelLen: snap.panelLen, reportLen: snap.reportLen, tail: snap.tail,
-      };
+      await page.waitForTimeout(1500);
+      const snap = await extractMarkdownFrom(page, "deep-research-immersive-panel .markdown, immersive-editor .markdown, .markdown-main-panel", true);
+      if (!snap.stopVisible && snap.reportLen > 2000) {
+        const body = snap.md.length >= snap.reportLen * 0.65 && snap.md.length > 0 ? snap.md : snap.raw;
+        keepTab = Boolean(REQ.keep);
+        result = {
+          ok: true, exit: 0, cmd: "deep-research:check", status: "done",
+          spaceId: task.spaceId, url: snap.url, title: snap.title, chars: body.length,
+          _text: `# ${snap.title}\n\n> Gemini Web Deep Research URL: ${snap.url}\n\n${body}\n`,
+        };
+      } else {
+        keepTab = true;
+        result = {
+          ok: true, exit: 0, cmd: "deep-research:check", status: "running",
+          spaceId: task.spaceId, url: snap.url, stopVisible: snap.stopVisible,
+          panelLen: snap.panelLen, reportLen: snap.reportLen, tail: snap.tail,
+        };
+      }
+    } finally {
+      await task.finish({ keep: keepTab ? ["p1"] : [] });
     }
   } else {
     throw new Fail(2, `unsupported command: ${REQ.cmd}`, "run `gemini-web help`");

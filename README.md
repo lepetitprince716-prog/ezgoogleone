@@ -51,7 +51,7 @@ google-agent-kit doctor
 ```
 
 Install only what you need:
-- For `gemini-web` and `aistudio`: [Bun](https://bun.sh) (`>= 1.1`) and `ego-browser` signed into your Google account.
+- For `gemini-web` and `aistudio`: [Bun](https://bun.sh) (`>= 1.1`) and `ego-browser` signed into your Google account (plus Info-ZIP `unzip` if using `aistudio build-export`).
 - For `gemini-api`: Python `>= 3.10` and `export GEMINI_API_KEY=...` (or `~/.config/gemini-api/api_key`). Zero third-party Python packages required.
 - For `colab-kit`: Python `>= 3.10`, `google-colab-cli` (`uv tool install google-colab-cli`), and `gcloud auth application-default login`.
 

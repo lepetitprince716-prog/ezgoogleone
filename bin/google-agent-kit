@@ -40,6 +40,7 @@ def has_gemini_api_key() -> bool:
 def build_doctor() -> dict[str, Any]:
     bun = shutil.which("bun")
     ego = shutil.which("ego-browser")
+    unzip = shutil.which("unzip")
     py = shutil.which("python3")
     colab = shutil.which("colab")
     gcloud = shutil.which("gcloud")
@@ -50,6 +51,7 @@ def build_doctor() -> dict[str, Any]:
         "runtimes": {
             "bun": bool(bun),
             "ego-browser": bool(ego),
+            "unzip": bool(unzip),
             "python3": bool(py),
             "colab": bool(colab),
             "gcloud": bool(gcloud),
@@ -65,7 +67,7 @@ def build_doctor() -> dict[str, Any]:
             },
             "aistudio": {
                 "ready": bool(bun and ego),
-                "requires": ["bun", "ego-browser", "signed-in Google session in ego-browser"],
+                "requires": ["bun", "ego-browser", "signed-in Google session in ego-browser", "unzip (optional, for build-export)"],
             },
             "gemini-api": {
                 "ready": bool(py and api_key),

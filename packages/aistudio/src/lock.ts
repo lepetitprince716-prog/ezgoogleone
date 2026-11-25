@@ -15,15 +15,19 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
 
-// macOS <fcntl.h> O_EXLOCK (0x20); Node does not export it and Linux reuses 0x20 for O_NOCTTY/other flags.
+// macOS <fcntl.h> O_EXLOCK (0x20); Node does not export it and Linux reuses 0x20 for other flags.
 const DARWIN_O_EXLOCK = 0x20;
-const IS_DARWIN = process.platform === "darwin";
+const DEFAULT_IS_DARWIN = process.platform === "darwin";
 
 export const PAGE_STALE_MS = 8000;
 
 export interface LockHandle {
   fd: number;
   cleanupPath?: string;
+}
+
+export interface LockOpts {
+  isDarwin?: boolean;
 }
 
 export function resolveStateDir(sub: string, envOverride?: string): string {
@@ -56,9 +60,10 @@ function pidAlive(pid: number): boolean {
   }
 }
 
-export function holderPid(file: string): number | null {
+export function holderPid(file: string, opts: LockOpts = {}): number | null {
+  const isDarwin = opts.isDarwin ?? DEFAULT_IS_DARWIN;
   try {
-    const raw = readFileSync(IS_DARWIN ? file : `${file}.lck`, "utf8").trim();
+    const raw = readFileSync(isDarwin ? file : `${file}.lck`, "utf8").trim();
     const n = Number(raw.split(/\s+/)[0]);
     return Number.isInteger(n) && n > 0 ? n : null;
   } catch {
@@ -66,9 +71,10 @@ export function holderPid(file: string): number | null {
   }
 }
 
-export function tryLock(file: string): LockHandle | null {
+export function tryLock(file: string, opts: LockOpts = {}): LockHandle | null {
+  const isDarwin = opts.isDarwin ?? DEFAULT_IS_DARWIN;
   mkdirSync(dirname(file), { recursive: true });
-  if (IS_DARWIN) {
+  if (isDarwin) {
     let fd: number;
     try {
       // Never unlink a flock file: doing so lets two openers lock separate inodes.
@@ -91,7 +97,7 @@ export function tryLock(file: string): LockHandle | null {
       return { fd, cleanupPath: lck };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      const pid = holderPid(file);
+      const pid = holderPid(file, { isDarwin: false });
       if (pid !== null && !pidAlive(pid)) {
         try {
           unlinkSync(lck);
@@ -104,19 +110,21 @@ export function tryLock(file: string): LockHandle | null {
   return null;
 }
 
-export function lockBlocking(file: string, timeoutMs = 15000): LockHandle {
-  mkdirSync(dirname(file), { recursive: true });
-  if (IS_DARWIN) {
-    const fd = openSync(file, constants.O_RDWR | constants.O_CREAT | DARWIN_O_EXLOCK, 0o644);
-    return { fd };
+function sleepSyncMs(ms: number): void {
+  if (typeof Bun !== "undefined" && typeof Bun.sleepSync === "function") {
+    Bun.sleepSync(ms);
+    return;
   }
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+export function lockBlocking(file: string, timeoutMs = 15000, opts: LockOpts = {}): LockHandle {
   const deadline = Date.now() + timeoutMs;
-  const sab = new Int32Array(new SharedArrayBuffer(4));
   for (;;) {
-    const h = tryLock(file);
+    const h = tryLock(file, opts);
     if (h) return h;
     if (Date.now() >= deadline) throw new Error(`timed out waiting for lock ${file}`);
-    Atomics.wait(sab, 0, 0, 25);
+    sleepSyncMs(25);
   }
 }
 
@@ -157,8 +165,8 @@ function readSpaces(f: string): string[] {
   }
 }
 
-export function withRegistry<T>(f: string, fn: (spaces: Set<string>) => T): T {
-  const h = lockBlocking(`${f}.lock`);
+export function withRegistry<T>(f: string, fn: (spaces: Set<string>) => T, opts: LockOpts = {}): T {
+  const h = lockBlocking(`${f}.lock`, 15000, opts);
   try {
     const s = new Set(readSpaces(f));
     const before = JSON.stringify([...s].sort());
