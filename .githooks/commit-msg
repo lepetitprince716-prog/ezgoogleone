@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+cd "$(git --no-replace-objects rev-parse --show-toplevel)"
+# When git opened an editor it strips its own comment lines (and, under -v, the diff below the
+# scissors line) after this hook. The privacy scan writes what the commit will keep to $kept
+# and the secret scan reads that file, so both scanners see the same text. An empty $kept (a
+# message of comments only, which git refuses anyway, or a scanner that wrote nothing) falls
+# back to the whole file: that scans more, never less.
+kept=$(git --no-replace-objects rev-parse --git-path genops-commit-msg-kept)
+: >"$kept"
+python3 -B tools/privacy_scan.py --message "$1" --as-committed "$kept"
+[ -s "$kept" ] || kept=$1
+sh tools/secret_scan.sh ignore-check --index
+sh tools/secret_scan.sh message "$kept"

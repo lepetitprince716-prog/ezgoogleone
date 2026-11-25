@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+cd "$(git --no-replace-objects rev-parse --show-toplevel)"
+python3 -B tools/privacy_scan.py --identity --staged
+sh tools/secret_scan.sh ignore-check --index
+exec sh tools/secret_scan.sh staged

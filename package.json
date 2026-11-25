@@ -1,0 +1,26 @@
+{
+  "name": "google-agent-kit",
+  "version": "0.1.0",
+  "description": "Universal CLI toolkit and cross-agent skills for Gemini Web, Google AI Studio, Gemini API, and Google Colab",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": false,
+  "bin": {
+    "google-agent-kit": "./bin/google-agent-kit",
+    "aistudio": "./bin/aistudio",
+    "gemini-web": "./bin/gemini-web",
+    "gemini-api": "./bin/gemini-api",
+    "colab-kit": "./bin/colab-kit"
+  },
+  "scripts": {
+    "test": "bun test packages/aistudio/tests packages/gemini-web/tests",
+    "test:aistudio": "bun test packages/aistudio/tests",
+    "test:gemini-web": "bun test packages/gemini-web/tests",
+    "test:py": "python3 -m unittest discover -s packages/gemini-api/tests && python3 -m unittest discover -s packages/colab/tests && python3 -m unittest discover -s tests",
+    "test:all": "bun run test && bun run test:py",
+    "doctor": "./bin/google-agent-kit doctor"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  }
+}

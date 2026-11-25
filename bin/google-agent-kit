@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+SKILLS_DIR = ROOT / "skills"
+SKILL_NAMES = ("google-agent-kit", "gemini-web", "aistudio", "gemini-api", "colab")
+
+HARNESS_TARGETS: dict[str, Path] = {
+    "agents": Path.home() / ".agents" / "skills",
+    "claude": Path.home() / ".claude" / "skills",
+    "codex": Path.home() / ".codex" / "skills",
+    "gemini": Path.home() / ".gemini" / "config" / "skills",
+    "opencode": Path.home() / ".config" / "opencode" / "skills",
+}
+
+
+def adc_file() -> Path:
+    custom = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+    if custom:
+        return Path(custom).expanduser()
+    return Path.home() / ".config" / "gcloud" / "application_default_credentials.json"
+
+
+def has_gemini_api_key() -> bool:
+    if os.environ.get("GEMINI_API_KEY", "").strip():
+        return True
+    key_file = Path.home() / ".config" / "gemini-api" / "api_key"
+    return key_file.is_file() and bool(key_file.read_text(encoding="utf-8", errors="ignore").strip())
+
+
+def build_doctor() -> dict[str, Any]:
+    bun = shutil.which("bun")
+    ego = shutil.which("ego-browser")
+    py = shutil.which("python3")
+    colab = shutil.which("colab")
+    gcloud = shutil.which("gcloud")
+    adc = adc_file().is_file()
+    api_key = has_gemini_api_key()
+
+    return {
+        "runtimes": {
+            "bun": bool(bun),
+            "ego-browser": bool(ego),
+            "python3": bool(py),
+            "colab": bool(colab),
+            "gcloud": bool(gcloud),
+        },
+        "credentials": {
+            "gemini_api_key": api_key,
+            "gcloud_adc": adc,
+        },
+        "modules": {
+            "gemini-web": {
+                "ready": bool(bun and ego),
+                "requires": ["bun", "ego-browser", "signed-in Google session in ego-browser"],
+            },
+            "aistudio": {
+                "ready": bool(bun and ego),
+                "requires": ["bun", "ego-browser", "signed-in Google session in ego-browser"],
+            },
+            "gemini-api": {
+                "ready": bool(py and api_key),
+                "requires": ["python3", "GEMINI_API_KEY or ~/.config/gemini-api/api_key"],
+            },
+            "colab": {
+                "ready": bool(py and colab and adc),
+                "requires": ["python3", "colab (google-colab-cli)", "gcloud auth application-default login"],
+            },
+        },
+    }
+
+
+def install_skills(targets: list[Path], *, copy: bool = False) -> list[dict[str, str]]:
+    installed: list[dict[str, str]] = []
+    for base in targets:
+        base.mkdir(parents=True, exist_ok=True)
+        for name in SKILL_NAMES:
+            src = SKILLS_DIR / name
+            dst = base / name
+            if dst.is_symlink() or dst.exists():
+                if dst.is_symlink() and dst.resolve() == src.resolve() and not copy:
+                    installed.append({"skill": name, "dest": str(dst), "action": "unchanged"})
+                    continue
+                if dst.is_symlink():
+                    dst.unlink()
+                elif dst.is_dir():
+                    shutil.rmtree(dst)
+                else:
+                    dst.unlink()
+            if copy:
+                shutil.copytree(src, dst)
+                installed.append({"skill": name, "dest": str(dst), "action": "copied"})
+            else:
+                dst.symlink_to(src)
+                installed.append({"skill": name, "dest": str(dst), "action": "linked"})
+    return installed
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(
+            "usage: google-agent-kit <command> [args...]\n"
+            "  doctor [--json]                                Check runtimes and credentials\n"
+            "  install-skills [--target DIR | --agents | --claude | --codex | --gemini | --opencode | --all] [--copy]\n"
+            "  gemini-web <args...>                           Drive gemini.google.com/app\n"
+            "  aistudio <args...>                             Drive aistudio.google.com\n"
+            "  gemini-api <args...>                           Call Gemini REST & Decisions API\n"
+            "  colab <args...>                                Operate Google Colab GPU/TPU\n"
+        )
+        return 0
+
+    cmd, rest = args[0], args[1:]
+    if cmd == "doctor":
+        rep = build_doctor()
+        if "--json" in rest:
+            print(json.dumps(rep, indent=2))
+            return 0
+        print("google-agent-kit doctor")
+        for mod, info in rep["modules"].items():
+            mark = "READY" if info["ready"] else "MISSING"
+            print(f"  {mod:12s} {mark:7s}  ({', '.join(info['requires'])})")
+        return 0
+
+    if cmd == "install-skills":
+        ap = argparse.ArgumentParser(prog="google-agent-kit install-skills")
+        ap.add_argument("--target", action="append", type=Path, default=[])
+        ap.add_argument("--agents", action="store_true")
+        ap.add_argument("--claude", action="store_true")
+        ap.add_argument("--codex", action="store_true")
+        ap.add_argument("--gemini", action="store_true")
+        ap.add_argument("--opencode", action="store_true")
+        ap.add_argument("--all", action="store_true")
+        ap.add_argument("--copy", action="store_true")
+        ns = ap.parse_args(rest)
+        targets = list(ns.target)
+        for key, path in HARNESS_TARGETS.items():
+            if ns.all or getattr(ns, key):
+                targets.append(path)
+        if not targets:
+            targets = [HARNESS_TARGETS["agents"]]
+        res = install_skills(targets, copy=ns.copy)
+        print(json.dumps({"ok": True, "installed": res}, indent=2))
+        return 0
+
+    dispatch = {
+        "gemini-web": ROOT / "bin" / "gemini-web",
+        "aistudio": ROOT / "bin" / "aistudio",
+        "gemini-api": ROOT / "bin" / "gemini-api",
+        "colab": ROOT / "bin" / "colab-kit",
+        "colab-kit": ROOT / "bin" / "colab-kit",
+    }
+    if cmd in dispatch:
+        return subprocess.run([str(dispatch[cmd]), *rest], check=False).returncode
+
+    print(f"unknown command: {cmd} (run `google-agent-kit help`)", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

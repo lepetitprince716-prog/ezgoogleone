@@ -1,0 +1,97 @@
+#!/bin/sh
+set -eu
+cd "$(git --no-replace-objects rev-parse --show-toplevel)"
+
+remote_name=${1:-}
+remote_url=${2:-}
+zero_oid="0000000000000000000000000000000000000000"
+
+url_allowed() {
+  url=$1
+  custom=$(git --no-replace-objects config --get genops.allowedPushUrl 2>/dev/null || true)
+  if [ -n "$custom" ]; then
+    [ "$url" = "$custom" ]
+    return $?
+  fi
+  case "$url" in
+    https://github.com/lepetitprince716-prog/google-agent-kit | \
+    https://github.com/lepetitprince716-prog/google-agent-kit.git | \
+    git@github.com:lepetitprince716-prog/google-agent-kit | \
+    git@github.com:lepetitprince716-prog/google-agent-kit.git | \
+    ssh://git@github.com/lepetitprince716-prog/google-agent-kit | \
+    ssh://git@github.com/lepetitprince716-prog/google-agent-kit.git)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+if [ -n "$remote_url" ]; then
+  clone_mode=$(python3 -B tools/privacy_scan.py --clone-mode) || {
+    echo "pre-push: refused: could not read the clone mode from tools/privacy_scan.py --clone-mode." >&2
+    exit 2
+  }
+  case "$clone_mode" in
+    maintainer)
+      if ! url_allowed "$remote_url"; then
+        echo "pre-push: refused in maintainer mode: remote '${remote_name:-unknown}' URL is not the approved upstream repository." >&2
+        exit 1
+      fi
+      ;;
+    contributor) ;;
+    *)
+      echo "pre-push: refused: tools/privacy_scan.py --clone-mode gave an unexpected answer." >&2
+      exit 2
+      ;;
+  esac
+fi
+
+if [ "$#" -eq 0 ] || [ -t 0 ]; then
+  python3 -B tools/privacy_scan.py --history
+  sh tools/secret_scan.sh ignore-check HEAD
+  exec sh tools/secret_scan.sh history
+fi
+
+pushed_any=0
+seen_input=0
+exclude_args=""
+
+while IFS=' ' read -r local_ref local_sha remote_ref _remote_sha; do
+  [ -n "${local_ref:-}" ] || continue
+  : "${_remote_sha:-}"
+  seen_input=1
+  if [ "$local_sha" = "$zero_oid" ]; then
+    echo "pre-push: deleting a remote ref publishes nothing; its name is not checked." >&2
+    continue
+  fi
+  pushed_any=1
+  python3 -B tools/privacy_scan.py --rev "$local_sha" --ref-name "$remote_ref"
+  sh tools/secret_scan.sh ignore-check "$local_sha"
+  sh tools/secret_scan.sh rev "$local_sha"
+  exclude_args="$exclude_args $local_sha"
+done
+
+if [ "$seen_input" = "0" ]; then
+  python3 -B tools/privacy_scan.py --history
+  sh tools/secret_scan.sh ignore-check HEAD
+  exec sh tools/secret_scan.sh history
+fi
+
+if [ "$pushed_any" = "1" ]; then
+  set --
+  for sha in $exclude_args; do
+    set -- "$@" --other-refs-except "$sha"
+  done
+  warn_rc=0
+  warn_out=$(python3 -B tools/privacy_scan.py "$@" 2>&1) || warn_rc=$?
+  if [ "$warn_rc" -eq 1 ]; then
+    echo "pre-push: warning: non-candidate local ref(s) have privacy findings (candidate push itself is clean):" >&2
+    printf '%s\n' "$warn_out" | sed 's/^/  /' >&2
+  elif [ "$warn_rc" -ne 0 ]; then
+    echo "pre-push: error checking non-candidate local refs (exit $warn_rc):" >&2
+    printf '%s\n' "$warn_out" | sed 's/^/  /' >&2
+    exit "$warn_rc"
+  fi
+fi

@@ -1,0 +1,113 @@
+name: Privacy scan
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: privacy-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan tracked files and history (trusted base scanner on PRs)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          scanner=tools/privacy_scan.py
+          rules=tools/privacy_rules.json
+          if [ -n "$BASE_REF" ]; then
+            base=$(git --no-replace-objects show-ref --verify --hash "refs/remotes/origin/$BASE_REF" 2>/dev/null) &&
+              base=$(git --no-replace-objects rev-parse --verify --quiet --end-of-options "$base^{commit}") || {
+              echo "privacy_scan: error: refs/remotes/origin/$BASE_REF is not present in this clone" >&2
+              exit 2
+            }
+            git --no-replace-objects show "$base:tools/privacy_scan.py" > "$RUNNER_TEMP/privacy_scan.py"
+            git --no-replace-objects show "$base:tools/privacy_rules.json" > "$RUNNER_TEMP/privacy_rules.json"
+            scanner="$RUNNER_TEMP/privacy_scan.py"
+            rules="$RUNNER_TEMP/privacy_rules.json"
+          fi
+          python3 -I -B "$scanner" --rules "$rules" --no-private --tracked --history
+
+  betterleaks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BETTERLEAKS_VERSION: "1.10.1"
+      BETTERLEAKS_ARCHIVE: betterleaks_1.10.1_linux_x64.tar.gz
+      BETTERLEAKS_SHA256: c174b42d7aa60caf58c0c3e555c0e4bed01fe6b0d99a412bce777b5af4ce913e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Betterleaks (pinned version, verified SHA-256)
+        run: |
+          set -eu
+          curl --proto '=https' --tlsv1.2 -fsSL -o "$RUNNER_TEMP/$BETTERLEAKS_ARCHIVE" \
+            "https://github.com/betterleaks/betterleaks/releases/download/v${BETTERLEAKS_VERSION}/${BETTERLEAKS_ARCHIVE}"
+          echo "${BETTERLEAKS_SHA256}  ${RUNNER_TEMP}/${BETTERLEAKS_ARCHIVE}" | sha256sum --check --strict -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/$BETTERLEAKS_ARCHIVE" -C "$RUNNER_TEMP/bin" betterleaks
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Scan history for secrets (trusted base wrapper on PRs)
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -eu
+          wrapper=tools/secret_scan.sh
+          redact_scanner=tools/privacy_scan.py
+          rules=tools/privacy_rules.json
+          ignore_path=""
+          if [ -n "$BASE_REF" ]; then
+            base=$(git --no-replace-objects show-ref --verify --hash "refs/remotes/origin/$BASE_REF" 2>/dev/null) &&
+              base=$(git --no-replace-objects rev-parse --verify --quiet --end-of-options "$base^{commit}") || {
+              echo "secret_scan: error: refs/remotes/origin/$BASE_REF is not present in this clone" >&2
+              exit 2
+            }
+            mkdir -p "$RUNNER_TEMP/trusted-tools"
+            git --no-replace-objects show "$base:tools/secret_scan.sh" > "$RUNNER_TEMP/trusted-tools/secret_scan.sh"
+            git --no-replace-objects show "$base:tools/secret_scan.tmpl" > "$RUNNER_TEMP/trusted-tools/secret_scan.tmpl"
+            git --no-replace-objects show "$base:tools/privacy_scan.py" > "$RUNNER_TEMP/trusted-tools/privacy_scan.py"
+            git --no-replace-objects show "$base:tools/privacy_rules.json" > "$RUNNER_TEMP/trusted-tools/privacy_rules.json"
+            chmod +x "$RUNNER_TEMP/trusted-tools/secret_scan.sh"
+            wrapper="$RUNNER_TEMP/trusted-tools/secret_scan.sh"
+            redact_scanner="$RUNNER_TEMP/trusted-tools/privacy_scan.py"
+            rules="$RUNNER_TEMP/trusted-tools/privacy_rules.json"
+            if git --no-replace-objects cat-file -e "$base:.betterleaksignore" 2>/dev/null; then
+              git --no-replace-objects show "$base:.betterleaksignore" > "$RUNNER_TEMP/trusted-tools/.betterleaksignore"
+              ignore_path="$RUNNER_TEMP/trusted-tools/.betterleaksignore"
+            elif git --no-replace-objects cat-file -e "$base:.gitleaksignore" 2>/dev/null; then
+              git --no-replace-objects show "$base:.gitleaksignore" > "$RUNNER_TEMP/trusted-tools/.gitleaksignore"
+              ignore_path="$RUNNER_TEMP/trusted-tools/.gitleaksignore"
+            else
+              : > "$RUNNER_TEMP/trusted-tools/empty.ignore"
+              ignore_path="$RUNNER_TEMP/trusted-tools/empty.ignore"
+            fi
+          fi
+          SECRET_SCAN_IGNORE_PATH="$ignore_path" \
+            SECRET_SCAN_REDACT_SCANNER="$redact_scanner" \
+            SECRET_SCAN_RULES="$rules" \
+            SECRET_SCAN_NO_PRIVATE=1 \
+            sh "$wrapper" history
+          if [ -n "$BASE_REF" ]; then
+            SECRET_SCAN_IGNORE_PATH="$ignore_path" \
+              SECRET_SCAN_IGNORE_ALLOW=1 \
+              SECRET_SCAN_REDACT_SCANNER="$redact_scanner" \
+              SECRET_SCAN_RULES="$rules" \
+              SECRET_SCAN_NO_PRIVATE=1 \
+              sh "$wrapper" range "$base..HEAD"
+          fi
